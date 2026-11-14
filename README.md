@@ -90,6 +90,23 @@ Most harmonization tools fix break 1. FireClock handles all four.
 
 ---
 
+## Results: Paraná Delta, Argentina (same code, another continent)
+
+![Paraná Delta: naive join vs FireClock](docs/img/fig_parana.png)
+
+The identical pipeline, run on 280,737 detections over Argentina's Paraná Delta wetlands (a different hemisphere, ecosystem and burning practice):
+
+| | Naive join | FireClock |
+|---|---|---|
+| Biggest fire year | **2020** (80,075 detections) | **2008** (61,902; 90% range 48,848–73,718): the fires whose smoke covered Buenos Aires in April 2008 |
+| 2012 sensor jump (2013–15 vs 2009–11) | 3.6× | **0.68×**, close to MODIS alone (0.75×) |
+| Aqua vs VIIRS, Oct–Nov 2026 | | **×1.1**, even though Aqua now looks at **3:55 pm** |
+| Hidden-year validation (MODIS→VIIRS) | | 12.3% median annual error, R² 0.86 (fewer, burstier fires than Punjab) |
+
+**Why this matters for the finding:** Aqua drifted later over Argentina too, yet saw no extra afternoon fire. The ×5.4 over Punjab is therefore about *when people there burn*, not an artifact of the satellite.
+
+---
+
 ## How we know it's right
 
 | Check | What it rules out | Result |
@@ -102,6 +119,7 @@ Most harmonization tools fix break 1. FireClock handles all four.
 | VIIRS satellites averaged, not added | "More satellites = more fire" | Single-satellite scale throughout |
 | Static sources removed | Factories and flares counted as fire | 37,781 detections removed (NASA `type` label) |
 | Independent study | Our method alone | Agrees with a 2026 geostationary study of the same region |
+| Second region (Paraná Delta, Argentina) | A satellite artifact that would appear everywhere | Aqua drifted to 3:55 pm there too, but stays flat (×1.1) |
 
 **What our data does not show:** the one-hour same-day effect is similar before and after 2022, so FireClock does not claim to date a shift in burning time. That evidence comes from the geostationary study cited below.
 
@@ -155,6 +173,7 @@ A hotspot is a satellite detection, not a fire, a burned area or an emissions es
 - NSIDC, MODIS: ongoing changes in Terra and Aqua orbits. https://nsidc.org/data/modis
 - NASA FIRMS / Earthdata: Suomi NPP data delivery ends November 2026.
 - "Timing the Flames: Geostationary Satellite Detection of Diurnally Shifting Stubble Burning in Northwestern India", *Remote Sensing* 18(10):1506, 2026. https://doi.org/10.3390/rs18101506
+- Berbery, Ciappesoni & Kalnay (2008), "The smoke episode in Buenos Aires, 15–20 April 2008", *Geophysical Research Letters* 35, L21801. doi:10.1029/2008GL035278
 - ThePrint (2025): ISRO study suggests farm fires shifted to late afternoon.
 - Software: Leaflet (BSD-2), OpenStreetMap tiles (ODbL), pandas, NumPy, Matplotlib, Requests.
 
