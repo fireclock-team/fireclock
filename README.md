@@ -3,7 +3,7 @@
 
 **NASA Space Apps Challenge 2026** · Challenge: *Harmonization of MODIS and VIIRS Hot Spots* · Team FireClock
 
-**▶ Live app: https://fireclock-team.github.io/fireclock/** · **📄 [Technical paper (PDF)](docs/FireClock_paper.pdf)** · **🖥 [Slides (PDF)](docs/FireClock_slides.pdf)**
+**▶ Website: https://fireclock-team.github.io/fireclock/** · **Explorer app: https://fireclock-team.github.io/fireclock/app.html** · **📄 [Technical paper (PDF)](docs/FireClock_paper.pdf)** · **🖥 [Slides (PDF)](docs/FireClock_slides.pdf)**
 
 > Every fire calendar assumes satellites look at the same hour every year. They don't, and neither do the fires.
 
