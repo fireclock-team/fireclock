@@ -183,11 +183,14 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:110px;col
 footer .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:30px}
 footer a{color:var(--sec);text-decoration:underline;text-decoration-color:var(--line2)}
 @media(max-width:800px){footer .wrap{grid-template-columns:1fr}.carnav{flex-wrap:wrap}}
+.prog-top{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;background:linear-gradient(90deg,#ffd29a,#ff7a3d,#ff4e2a);box-shadow:0 0 12px rgba(255,122,61,.7)}
+.sc{will-change:transform}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rv,.hero .wrap>*{opacity:1!important;transform:none!important}.frame{transform:none!important}}
 </style>
 </head>
 <body>
 
+<div class="prog-top" id="progTop"></div>
 <nav class="top" id="nav"><div class="wrap">
   <a class="brand" href="#top"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><span>Fire<span class="c">Clock</span></span></a>
   <div class="links"><a href="#why">Why it matters</a><a href="#problem">The problem</a><a href="#lab">The finding</a><a href="#how">How it works</a><a href="#proof">Validation</a><a href="#cases">Case studies</a><a href="#paper">Paper</a></div>
@@ -217,10 +220,10 @@ footer a{color:var(--sec);text-decoration:underline;text-decoration-color:var(--
 </div>
 
 <section class="s" id="why"><div class="wrap split">
-  <div class="rv"><div class="media"><img src="img/hero.jpg" alt="2.5 million VIIRS fire detections over northwest India"><span class="cap">Every glow: a real NASA VIIRS fire detection, NW India 2012–2026</span></div></div>
+  <div class="rv"><div class="media sc" id="whyImg"><img src="img/hero.jpg" alt="2.5 million VIIRS fire detections over northwest India"><span class="cap">Every glow: a real NASA VIIRS fire detection, NW India 2012–2026</span></div></div>
   <div>
     <span class="eyebrow rv">Why this matters</span>
-    <div class="big91 rv d1" id="c91">−91%</div>
+    <div class="big91 rv d1" id="c91" data-to="91" data-pre="−" data-suf="%">−91%</div>
     <h2 class="rv d2" style="font-size:clamp(26px,3vw,38px);margin-top:10px">Punjab &amp; Haryana's crop-fire count, October 2026, vs normal.</h2>
     <p class="sub rv d3">Satellite fire counts are how North India's crop burning, and the policies against it, are judged. Its smoke adds to some of the worst air on Earth. But a count is only a sample of the moment the satellite passes over. <b style="color:var(--ink)">Fewer fires, or fires the satellites didn't see?</b></p>
     <div class="pts">
@@ -335,17 +338,17 @@ footer a{color:var(--sec);text-decoration:underline;text-decoration-color:var(--
 </div></section>
 
 <section class="s" id="paper"><div class="wrap paper">
-  <a href="FireClock_paper.pdf" class="pp rv"><img src="img/paper_p1.jpg" alt="First page of the FireClock technical paper" loading="lazy"></a>
+  <a href="FireClock_paper.pdf" class="pp rv sc" id="ppImg"><img src="img/paper_p1.jpg" alt="First page of the FireClock technical paper" loading="lazy"></a>
   <div>
     <span class="eyebrow rv">Technical paper</span>
     <h2 class="rv d1">The full method, <span class="grad">written up</span>.</h2>
-    <p class="sub rv d2">A 6-page paper with every equation, table and check behind FireClock, plus its limits, stated plainly.</p>
+    <p class="sub rv d2">A 29-page technical paper: every equation, table and check behind FireClock, the app architecture, full data appendices, and its limits, stated plainly.</p>
     <div class="toc rv d3"><span>Background on MODIS &amp; VIIRS</span><span>Data: 5 satellites, 2 regions</span><span>Exchange-rate equation</span><span>Bootstrap uncertainty</span><span>Same-day regression</span><span>Aqua natural experiment</span><span>Argentina generality test</span><span>Discussion &amp; limitations</span></div>
     <div class="rv d4" style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn p" href="FireClock_paper.pdf">Read the paper (PDF)</a><a class="btn" href="https://github.com/fireclock-team/fireclock">Code on GitHub</a></div>
   </div>
 </div></section>
 
-<div class="wrap"><div class="cta rv">
+<div class="wrap"><div class="cta rv sc" id="ctaBox">
   <span class="eyebrow">Try it</span>
   <h2>Pick any area. See <span class="grad">26 years</span> of fire on one scale.</h2>
   <p class="sub" style="margin:16px auto 0">No install. No login. Runs in any browser.</p>
@@ -376,8 +379,8 @@ function count(el){var to=parseFloat(el.dataset.to),dec=+(el.dataset.dec||0),pre
     el.textContent=pre+(dec?v.toFixed(dec):Math.round(v).toLocaleString())+suf;if(p<1)requestAnimationFrame(f)}requestAnimationFrame(f)}
 var els=document.querySelectorAll(".rv");
 if(reduce||!("IntersectionObserver" in window)){els.forEach(function(e){e.classList.add("in")});document.querySelectorAll("[data-to]").forEach(function(e){var d=+(e.dataset.dec||0),v=parseFloat(e.dataset.to);e.textContent=(e.dataset.pre||"")+(d?v.toFixed(d):v.toLocaleString())+(e.dataset.suf||"")})}
-else{var io=new IntersectionObserver(function(es){es.forEach(function(x){if(x.isIntersecting){x.target.classList.add("in");x.target.querySelectorAll("[data-to]").forEach(count);io.unobserve(x.target)}})},{threshold:.12});
-  els.forEach(function(e){io.observe(e)});setTimeout(function(){els.forEach(function(e){if(!e.classList.contains("in")){e.classList.add("in");e.querySelectorAll("[data-to]").forEach(count)}})},9000)}
+else{var io=new IntersectionObserver(function(es){es.forEach(function(x){if(x.isIntersecting){x.target.classList.add("in");x.target.querySelectorAll("[data-to]").forEach(count);if(x.target.dataset.to)count(x.target);io.unobserve(x.target)}})},{threshold:.12});
+  els.forEach(function(e){io.observe(e)});setTimeout(function(){els.forEach(function(e){if(!e.classList.contains("in")){e.classList.add("in");e.querySelectorAll("[data-to]").forEach(count);if(e.dataset.to)count(e)}})},9000)}
 /* breaks tabs */
 var B=[
  {s:"Break 1 · 2012",t:"New sensor",k:"6.1×",h:"VIIRS sees far more fire than MODIS",p:"VIIRS's 375 m pixels detect much smaller fires than MODIS's 1 km pixels. Join the two naively and fire appears to jump six-fold the moment VIIRS arrives.",f:"Per-calendar-month exchange rate, learned only from 2013–2020: the jump becomes <b>1.06×</b>, with 7.3% error on held-out years."},
@@ -438,6 +441,21 @@ var sl=$("slides"),n=sl.children.length,ci=0,dots=$("dots"),ct;
 dots.innerHTML=Array.from({length:n},function(_,i){return '<i data-i="'+i+'"></i>'}).join("");
 function go(i){ci=(i+n)%n;sl.style.transform="translateX(-"+ci*100+"%)";dots.querySelectorAll("i").forEach(function(d,j){d.classList.toggle("on",j===ci)});clearTimeout(ct);if(!reduce)ct=setTimeout(function(){go(ci+1)},7000)}
 $("prev").onclick=function(){go(ci-1)};$("next").onclick=function(){go(ci+1)};dots.querySelectorAll("i").forEach(function(d){d.onclick=function(){go(+d.dataset.i)}});go(0);
+/* extra scroll-driven motion */
+if(!reduce){
+  var hw=document.querySelector(".hero .wrap"),pt=$("progTop"),why=$("whyImg"),pp=$("ppImg"),cb=$("ctaBox"),gal=document.querySelectorAll(".gal .media img, .slide .media img");gal.forEach(function(im){im.style.transition="transform .25s linear"});[why,pp,cb].forEach(function(el){if(el)el.style.transition="opacity .9s, transform .25s linear"});
+  var vis=function(el){var r=el.getBoundingClientRect(),vh=innerHeight;return Math.min(1,Math.max(0,(vh-r.top)/(vh+r.height)))};
+  var ticking=false;
+  function fx(){ticking=false;var y=scrollY,vh=innerHeight,H=document.documentElement.scrollHeight-vh;
+    pt.style.width=(H>0?y/H*100:0)+"%";
+    if(y<vh*1.2){var k=Math.min(1,y/vh);hw.style.transform="translateY("+(y*0.35).toFixed(1)+"px)";hw.style.opacity=(1-k*1.1).toFixed(3)}
+    if(why){var t=vis(why);why.style.transform="perspective(1200px) rotateY("+((1-t)*14-4).toFixed(2)+"deg) translateX("+((0.5-t)*40).toFixed(1)+"px)"}
+    if(pp){var t2=vis(pp);pp.style.transform="rotate("+(-10+t2*12).toFixed(2)+"deg) translateY("+((0.5-t2)*60).toFixed(1)+"px)"}
+    if(cb){var t3=vis(cb);cb.style.transform="scale("+(0.92+Math.min(1,t3*1.6)*0.08).toFixed(3)+")"}
+    gal.forEach(function(im){var t4=vis(im);im.style.transform="scale("+(1.12-t4*0.12).toFixed(3)+") translateY("+((0.5-t4)*16).toFixed(1)+"px)"});
+  }
+  addEventListener("scroll",function(){if(!ticking){ticking=true;requestAnimationFrame(fx)}},{passive:true});fx();
+}
 /* embers */
 var c=$("embers");if(c&&!reduce){var g2=c.getContext("2d"),P=[],W,H,dpr=Math.min(devicePixelRatio||1,2);
   function rs(){var r=c.getBoundingClientRect();W=r.width;H=r.height;c.width=W*dpr;c.height=H*dpr;g2.setTransform(dpr,0,0,dpr,0,0)}rs();addEventListener("resize",rs);
