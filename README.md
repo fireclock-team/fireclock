@@ -16,6 +16,7 @@
 - **One consistent fire record, 2000 → today.** 3,057,777 NASA FIRMS detections from five satellites (Terra, Aqua, S-NPP, NOAA-20, NOAA-21) over Punjab & Haryana, joined on one scale. The fake **6.1× jump** a naive join shows in 2012 becomes **1.06×**.
 - **Tested on years it never saw.** Leave-one-year-out validation: median annual error **7.3%**, R² = 0.983 on monthly totals.
 - **A new finding from NASA's own data.** Aqua's orbit has been drifting, and over Punjab its look time moved from **1:17 pm to 3:32 pm**. As it looked later, it saw **×1.3 → ×1.6 → ×2.3 → ×5.4** as much rice-season fire as the satellites that still pass at ~1:15 pm. In the wheat season (placebo), with the same satellite and the same drift, it stays **flat**.
+- **Proven on a second continent.** The same code on Argentina's Paraná Delta corrects the record there too: the naive join calls 2020 the worst fire year; FireClock shows **2008** was bigger, the year the Delta's smoke covered Buenos Aires. Aqua drifted even later there (3:55 pm) but saw **no** extra fire (×1.1), so the Punjab ×5.4 is about when people burn, not the satellite.
 - **Why it matters.** The satellite counts used to track crop burning in North India see a timing-sensitive slice of the season. The harmonized October 2026 count is ~91% below normal. FireClock flags that a falling count here can mean fewer fires *or* fires the satellites didn't see.
 - **A tool, not just a finding.** Any area, any date range: burning calendar, current month vs history, a satellite-clock check, and a CSV download, all in the browser.
 
@@ -27,7 +28,7 @@ Every October and November, smoke from crop-residue burning in Punjab and Haryan
 
 If those counts depend on *what time the satellite looks*, a falling trend can be misread as success. FireClock gives fire managers, air-quality planners, scientists and journalists one record they can compare across decades, and tells them when to be careful.
 
-The method is not specific to India: any region where fires follow a daily cycle (agricultural burning, savanna fires) has the same blind spot. The app runs on any area of the precomputed regions, and the scripts run anywhere FIRMS has data.
+The method is not specific to India: it already runs unchanged on Argentina's Paraná Delta (see below), and any region where fires follow a daily cycle (agricultural burning, savanna fires) can have the same blind spot. The app works on any box inside the precomputed regions, and the scripts run anywhere FIRMS has data.
 
 ---
 
