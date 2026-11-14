@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireClock — a fire calendar that knows what time it is</title>
+<meta name="description" content="Harmonized MODIS + VIIRS burning-activity calendar that corrects for when satellites look. NASA Space Apps 2026.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{
+  --surface-0:#f6f5f2; --surface-1:#fcfcfb; --border:#e4e2dc; --grid:#ecebe7;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#7a7974;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100; --series-5:#e87ba4;
+  --critical:#d03b3b; --warning:#fab219; --good:#0ca30c;
+  --r1:#fdeee6; --r2:#fbd3bf; --r3:#f6ad8a; --r4:#ef8456; --r5:#eb6834; --r6:#c9531f; --r7:#a3421a; --r8:#7c3214; --r9:#5a240e;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--surface-0);color:var(--text-primary)}
+a{color:var(--series-1)}
+header{background:#14110f;color:#f3efe9;padding:40px 24px 32px}
+header .wrap{max-width:1100px;margin:auto}
+h1{font-size:40px;margin:0 0 6px;letter-spacing:-.5px}
+h1 .clock{color:var(--series-2)}
+.tag{font-size:20px;color:#d8d2c8;max-width:820px;margin:0 0 22px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tile{background:#221d1a;border:1px solid #3a322d;border-radius:10px;padding:14px 16px}
+.tile .v{font-size:30px;font-weight:700;color:#fff}
+.tile .l{font-size:13px;color:#bdb5aa}
+.tour{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 16px;font-size:14px;color:#d8d2c8}.tour a{color:#ffb58f}
+main{max-width:1100px;margin:auto;padding:20px 24px 60px}
+section{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin:18px 0}
+h2{font-size:21px;margin:0 0 4px}
+.sub{color:var(--text-secondary);margin:0 0 14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+button,select,input{font:inherit;border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 10px}
+button{cursor:pointer}
+button.on{background:#14110f;color:#fff;border-color:#14110f}
+input.num{width:84px}
+#map{height:340px;border-radius:10px;border:1px solid var(--border)}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:18px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+.card{border:1px solid var(--border);border-radius:10px;padding:14px}
+.big{font-size:34px;font-weight:700}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}
+.pill.above{background:#fbe2e2;color:#8f1f1f}.pill.below{background:#e2effb;color:#174f8f}.pill.normal{background:#eeede9;color:#3d3c39}
+svg text{font-family:inherit}
+.cal-wrap{overflow-x:auto}
+#tip{position:fixed;pointer-events:none;background:#14110f;color:#fff;padding:7px 10px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .08s;z-index:9999;max-width:280px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--text-secondary)}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.warn{border-left:4px solid var(--warning);background:#fff8e6;padding:10px 14px;border-radius:6px}
+.ok{border-left:4px solid var(--good);background:#eaf6ea;padding:10px 14px;border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-bottom:1px solid var(--grid);padding:6px 8px;text-align:left}
+th{color:var(--text-secondary);font-weight:600}
+.muted{color:var(--text-muted);font-size:13px}
+footer{max-width:1100px;margin:auto;padding:0 24px 40px;color:var(--text-secondary);font-size:13px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Fire<span class="clock">Clock</span></h1>
+  <p class="tag">Every fire calendar assumes satellites look at the same hour every year. They don't, and neither do the fires.
+  FireClock joins 25 years of NASA MODIS and VIIRS fire detections into one consistent record, and tells you when the satellite's clock may be hiding fire.</p>
+  <div class="tiles" id="tiles"></div>
+  <nav class="tour"><b>60-second tour for judges:</b>
+    <a href="#s-cal">① the harmonized calendar</a>
+    <a href="#s-rec">② the fake 2012 jump, removed</a>
+    <a href="#s-clock">③ the satellite-clock finding + placebo</a>
+    <a href="#s-trust">④ errors on years the model never saw</a>
+  </nav>
+</div></header>
+
+<main>
+<section>
+  <h2>1 · Pick an area</h2>
+  <p class="sub">Choose a region, a preset, type a box, or click <b>Draw box</b> and click two corners on the map. Data are on a 0.25° grid.</p>
+  <div class="row">
+    <select id="region"></select>
+    <span id="presets"></span>
+    <button id="drawBtn">Draw box</button>
+  </div>
+  <div class="row">
+    S <input class="num" id="s" type="number" step="0.25"> N <input class="num" id="n" type="number" step="0.25">
+    W <input class="num" id="w" type="number" step="0.25"> E <input class="num" id="e" type="number" step="0.25">
+    <button id="apply">Apply</button>
+    <span class="muted" id="cellcount"></span>
+  </div>
+  <div id="map"></div>
+</section>
+
+<section id="s-cal">
+  <h2>2 · Burning activity calendar</h2>
+  <p class="sub">Monthly fire detections on one scale: what a single VIIRS satellite would count. Before 2012, MODIS counts are converted with exchange rates learned when both orbits were stable (2013–2020).</p>
+  <div class="row">
+    <button id="mHarm" class="on">Harmonized</button><button id="mRaw">Raw (naive join)</button>
+    <button id="dl">Download CSV</button>
+    <span class="muted">Hover any cell for the number.</span>
+  </div>
+  <div class="cal-wrap"><svg id="cal"></svg></div>
+  <div class="legend" id="calLegend"></div>
+</section>
+
+<section class="grid2" id="s-rec">
+  <div>
+    <h2>3 · The record, year by year</h2>
+    <p class="sub">The naive join jumps when VIIRS arrives in 2012. The harmonized record doesn't. The shaded band is the 90% range.</p>
+    <svg id="series"></svg>
+    <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Raw (all sensors added)</span><span><i class="sw" style="background:var(--series-1)"></i>Harmonized</span></div>
+  </div>
+  <div class="card" id="now"></div>
+</section>
+
+<section id="s-clock">
+  <h2>4 · The satellite clock</h2>
+  <p class="sub">Most fire counts come from satellites that look around 1:15–1:30 pm. Aqua's orbit has drifted later every year since 2022, so it has turned into an accidental afternoon fire-watcher. Comparing it with the fixed VIIRS satellites shows how much fire burns after the main satellites have passed.</p>
+  <div class="grid2" style="margin-bottom:18px">
+    <div><svg id="probe"></svg><div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Oct–Nov (rice-residue season)</span><span><i class="sw" style="background:var(--series-1)"></i>Apr–May (wheat season, placebo)</span></div></div>
+    <div id="probeText"></div>
+  </div>
+  <h3 style="margin:6px 0">When each satellite looks</h3>
+  <div class="grid2">
+    <div><svg id="drift"></svg><div class="legend" id="driftLegend"></div></div>
+    <div id="clockResult"></div>
+  </div>
+</section>
+
+<section id="s-trust">
+  <h2>5 · Can you trust it?</h2>
+  <div id="trust"></div>
+</section>
+
+<section>
+  <h2>Data, method and credits</h2>
+  <div id="methods"></div>
+</section>
+</main>
+<footer>
+FireClock · NASA Space Apps Challenge 2026 · Challenge: <i>Harmonization of MODIS and VIIRS Hot Spots</i>.
+Fire data: NASA FIRMS (MODIS C6.1 MCD14ML; VIIRS 375 m VNP14IMG, VJ114IMG, VJ214IMG). A hotspot is a satellite detection, not an individual fire.
+Code written with AI assistance (Claude, Anthropic); all analysis choices reviewed by the team. Open source, MIT licence.
+</footer>
+<div id="tip"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+"use strict";
+const REGIONS = [
+  {id:"nw_india", name:"Punjab & Haryana, India", presets:[
+    {name:"Whole region", b:[27.5,32.75,73.75,77.75]},
+    {name:"Punjab (India, approx.)", b:[29.5,32.5,74.5,77.0]},
+    {name:"Haryana (approx.)", b:[27.75,30.75,74.5,77.5]}]},
+  {id:"parana_delta", name:"Paraná Delta, Argentina", presets:[
+    {name:"Whole region", b:[-34.5,-32.25,-61.0,-58.25]},
+    {name:"Islands of the Delta", b:[-34.0,-32.75,-60.75,-58.75]}]}
+];
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const RAMP=["--r1","--r2","--r3","--r4","--r5","--r6","--r7","--r8","--r9"].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const $=id=>document.getElementById(id);
+const fmt=x=>x==null||isNaN(x)?"–":(x>=1000?Math.round(x).toLocaleString():(x>=10?Math.round(x):x.toFixed(1)));
+const tip=$("tip");
+function showTip(ev,html){tip.innerHTML=html;tip.style.opacity=1;const x=Math.min(ev.clientX+14,innerWidth-290);tip.style.left=x+"px";tip.style.top=(ev.clientY+14)+"px"}
+function hideTip(){tip.style.opacity=0}
+const S=(tag,attrs,parent)=>{const el=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const k in attrs)el.setAttribute(k,attrs[k]);if(parent)parent.appendChild(el);return el};
+
+let state={region:null,data:{},box:null,mode:"harm"};
+let map,boxLayer,cellLayer,drawing=false,firstCorner=null;
+
+async function loadRegion(id){
+  if(state.data[id]) return state.data[id];
+  const get=async f=>{try{const r=await fetch(`data/${id}/${f}`);return r.ok?await r.json():null}catch(e){return null}};
+  const [cells,summary]=await Promise.all([get("cells.json"),get("summary.json")]);
+  if(!cells) return null;
+  state.data[id]={cells,summary};return state.data[id];
+}
+
+function cellsInBox(d,b){const [s,n,w,e]=b;const out=[];d.cells.cells.forEach((c,i)=>{const la=c[0]+0.125,lo=c[1]+0.125;if(la>=s&&la<=n&&lo>=w&&lo<=e)out.push(i)});return out}
+
+function areaSeries(d,b){
+  const idx=cellsInBox(d,b),C=d.cells,nM=C.n_months;
+  const harm=new Array(nM).fill(0),raw=new Array(nM).fill(0);
+  for(const i of idx){const h=C.harm[i],r=C.raw[i];for(let m=0;m<nM;m++){harm[m]+=h[m];raw[m]+=r[m]}}
+  const [y0,m0]=C.start;const rows=[];
+  for(let m=0;m<nM;m++){const ym=(y0*12+m0-1)+m;const band=C.band[m]||[1,1];
+    rows.push({year:Math.floor(ym/12),month:ym%12+1,harm:harm[m],lo:harm[m]*band[0],hi:harm[m]*band[1],raw:raw[m],src:C.source[m]})}
+  return {rows,nCells:idx.length};
+}
+
+function baseline(rows){const by={};rows.forEach(r=>{if(r.year>=2003&&r.year<=2022){(by[r.month]=by[r.month]||[]).push(r.harm)}});
+  const q=(a,p)=>{const s=[...a].sort((x,y)=>x-y);const i=(s.length-1)*p;const lo=Math.floor(i),hi=Math.ceil(i);return s[lo]+(s[hi]-s[lo])*(i-lo)};
+  const out={};for(const m in by){out[m]={med:q(by[m],.5),q25:q(by[m],.25),q75:q(by[m],.75)}}return out}
+
+/* ---------- calendar heatmap ---------- */
+function drawCalendar(rows){
+  const svg=$("cal");svg.innerHTML="";
+  const years=[...new Set(rows.map(r=>r.year))];
+  const cw=56,ch=19,L=44,T=22;const W=L+12*cw+10,H=T+years.length*ch+6;
+  svg.setAttribute("width",W);svg.setAttribute("height",H);svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const key=state.mode==="harm"?"harm":"raw";
+  const vals=rows.map(r=>r[key]).filter(v=>v>0).sort((a,b)=>a-b);
+  // 9 quantile steps: each colour holds ~1/9 of months, so seasonal and yearly differences stay readable
+  const qs=[1,2,3,4,5,6,7,8].map(i=>vals[Math.floor(vals.length*i/9)]||0);
+  const col=v=>{if(!(v>0))return css("--surface-0");let k=0;while(k<8&&v>qs[k])k++;return RAMP[k]};
+  state.qs=qs;
+  MONTHS.forEach((m,i)=>S("text",{x:L+i*cw+cw/2,y:14,"text-anchor":"middle","font-size":12,fill:css("--text-secondary")},svg).textContent=m);
+  const base=baseline(rows);
+  years.forEach((y,j)=>{
+    S("text",{x:L-6,y:T+j*ch+ch*0.72,"text-anchor":"end","font-size":12,fill:css("--text-secondary")},svg).textContent=y;
+    rows.filter(r=>r.year===y).forEach(r=>{
+      const v=r[key];const rect=S("rect",{x:L+(r.month-1)*cw+1,y:T+j*ch+1,width:cw-2,height:ch-2,rx:3,fill:col(v)},svg);
+      if(y===2012&&r.month===1)S("line",{x1:L-2,x2:L+12*cw,y1:T+j*ch,y2:T+j*ch,stroke:css("--text-primary"),"stroke-dasharray":"3 3"},svg);
+      rect.addEventListener("mousemove",ev=>{const b=base[r.month];
+        const an=b&&b.med>0?Math.round((r.harm-b.med)/b.med*100):null;
+        showTip(ev,`<b>${MONTHS[r.month-1]} ${r.year}</b><br>${state.mode==="harm"?"Harmonized":"Raw join"}: ${fmt(v)} detections`+
+          (state.mode==="harm"?`<br>90% range: ${fmt(r.lo)}–${fmt(r.hi)}<br>vs 2003–22 median: ${an==null?"–":(an>0?"+":"")+an+"%"}<br><span style="color:#bbb">${r.src==="V"?"VIIRS observed":"MODIS × exchange rate"}</span>`:"")) });
+      rect.addEventListener("mouseleave",hideTip);
+    });
+  });
+  S("text",{x:L+12*cw+6,y:T+(years.indexOf(2012))*ch+4,"font-size":11,fill:css("--text-secondary"),"text-anchor":"end"},svg);
+  const lg=$("calLegend");lg.innerHTML=`<span>fewer</span>`+RAMP.map(c=>`<i class="sw" style="background:${c}"></i>`).join("")+`<span>more · each shade ≈ 1/9 of all months (${fmt(state.qs[0])} → ${fmt(state.qs[7])}+ detections) · dashed line = VIIRS arrives (2012)</span>`;
+}
+
+/* ---------- annual series ---------- */
+function drawSeries(rows){
+  const svg=$("series");svg.innerHTML="";const W=640,H=260,L=56,R=12,T=12,B=28;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("width","100%");
+  const by={};rows.forEach(r=>{const o=by[r.year]=by[r.year]||{harm:0,lo:0,hi:0,raw:0,n:0};o.harm+=r.harm;o.lo+=r.lo;o.hi+=r.hi;o.raw+=r.raw;o.n++});
+  const ys=Object.keys(by).map(Number).filter(y=>by[y].n>=10);
+  const max=Math.max(...ys.map(y=>Math.max(by[y].raw,by[y].hi)))*1.05||1;
+  const x=y=>L+(y-ys[0])/(ys[ys.length-1]-ys[0])*(W-L-R),yv=v=>T+(1-v/max)*(H-T-B);
+  for(let k=0;k<=4;k++){const v=max*k/4;S("line",{x1:L,x2:W-R,y1:yv(v),y2:yv(v),stroke:css("--grid")},svg);S("text",{x:L-6,y:yv(v)+4,"text-anchor":"end","font-size":11,fill:css("--text-muted")},svg).textContent=fmt(v)}
+  ys.filter(y=>y%4===0).forEach(y=>S("text",{x:x(y),y:H-8,"text-anchor":"middle","font-size":11,fill:css("--text-muted")},svg).textContent=y);
+  const band=ys.map(y=>`${x(y)},${yv(by[y].hi)}`).join(" ")+" "+ys.slice().reverse().map(y=>`${x(y)},${yv(by[y].lo)}`).join(" ");
+  S("polygon",{points:band,fill:css("--series-1"),opacity:.15},svg);
+  const line=(k,c)=>S("polyline",{points:ys.map(y=>`${x(y)},${yv(by[y][k])}`).join(" "),fill:"none",stroke:c,"stroke-width":2},svg);
+  line("raw",css("--series-2"));line("harm",css("--series-1"));
+  ys.forEach(y=>{const hit=S("rect",{x:x(y)-8,y:T,width:16,height:H-T-B,fill:"transparent"},svg);
+    hit.addEventListener("mousemove",ev=>showTip(ev,`<b>${y}</b><br>Harmonized: ${fmt(by[y].harm)}<br>Raw join: ${fmt(by[y].raw)}`));hit.addEventListener("mouseleave",hideTip)});
+}
+
+/* ---------- current month vs history ---------- */
+function drawNow(rows){
+  const now=new Date(),curYM=now.getFullYear()*12+now.getMonth();
+  const done=rows.filter(r=>r.year*12+r.month-1<curYM);
+  const last=[...done].reverse().find(r=>r.harm>0||r.raw>0)||rows[rows.length-1];
+  const prog=rows.find(r=>r.year*12+r.month-1===curYM);
+  const b=baseline(rows)[last.month];
+  let cls="normal",lab="Normal";
+  if(b){if(last.harm>b.q75){cls="above";lab="Above normal"}else if(last.harm<b.q25){cls="below";lab="Below normal"}}
+  const an=b&&b.med>0?Math.round((last.harm-b.med)/b.med*100):null;
+  const peak=[...rows].sort((a,c)=>c.harm-a.harm)[0];
+  const bm=baseline(rows);const busiest=Object.keys(bm).sort((a,c)=>bm[c].med-bm[a].med).slice(0,2).map(m=>MONTHS[m-1]).join(" & ");
+  $("now").innerHTML=`<div class="muted">Latest complete month</div><div class="big">${MONTHS[last.month-1]} ${last.year}</div>
+   <div>${fmt(last.harm)} detections <span class="pill ${cls}">${lab}</span></div>
+   <div class="muted">${an==null?"":(an>0?"+":"")+an+"% vs the 2003–2022 median for "+MONTHS[last.month-1]}</div>${prog?`<div class="muted" style="margin-top:4px">${MONTHS[prog.month-1]} ${prog.year} so far: ${fmt(prog.harm)} (month in progress)</div>`:""}
+   <hr style="border:none;border-top:1px solid var(--grid)">
+   <div class="muted">Critical period (highest median)</div><div><b>${busiest}</b></div>
+   <div class="muted" style="margin-top:8px">Most active month on record</div><div><b>${MONTHS[peak.month-1]} ${peak.year}</b> · ${fmt(peak.harm)}</div>`;
+}
+
+/* ---------- Aqua probe ---------- */
+function drawProbe(summary){
+  const P=(summary.clock||{}).aqua_probe;const svg=$("probe");svg.innerHTML="";
+  if(!P||!P.oct_nov){$("probeText").innerHTML="";return}
+  const W=560,H=260,L=48,R=20,T=12,B=40;svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("width","100%");
+  const ser=[["oct_nov","--series-2"],["apr_may","--series-1"]].filter(s=>P[s[0]]);
+  const pts=ser.flatMap(([k])=>P[k].filter(r=>r.aqua_hour));
+  const x0=Math.floor(Math.min(...pts.map(p=>p.aqua_hour))*4)/4-0.1,x1=Math.max(...pts.map(p=>p.aqua_hour))+0.15;
+  const ymax=Math.max(...pts.map(p=>p.multiplier))*1.1;
+  const x=h=>L+(h-x0)/(x1-x0)*(W-L-R),y=v=>T+(1-v/ymax)*(H-T-B);
+  for(let v=0;v<=ymax;v+=1){S("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css("--grid")},svg);S("text",{x:L-6,y:y(v)+4,"text-anchor":"end","font-size":11,fill:css("--text-muted")},svg).textContent="×"+v}
+  S("line",{x1:L,x2:W-R,y1:y(1),y2:y(1),stroke:css("--text-muted"),"stroke-dasharray":"4 3"},svg);
+  for(let h=Math.ceil(x0*2)/2;h<=x1;h+=0.5)S("text",{x:x(h),y:H-22,"text-anchor":"middle","font-size":11,fill:css("--text-muted")},svg).textContent=`${Math.floor(h)}:${h%1?"30":"00"}`;
+  S("text",{x:(L+W-R)/2,y:H-4,"text-anchor":"middle","font-size":11,fill:css("--text-secondary")},svg).textContent="Aqua's local look time that season →";
+  S("text",{x:W-R,y:y(1)-6,"text-anchor":"end","font-size":11,fill:css("--text-muted")},svg).textContent="×1 = what it saw at ~1:15 pm (2013–2020)";
+  ser.forEach(([k,c])=>{const pp=P[k].filter(r=>r.aqua_hour&&r.year>=2013).sort((a,b)=>a.aqua_hour-b.aqua_hour);
+    S("polyline",{points:pp.map(p=>`${x(p.aqua_hour)},${y(p.multiplier)}`).join(" "),fill:"none",stroke:css(c),"stroke-width":2},svg);
+    pp.forEach(p=>{S("circle",{cx:x(p.aqua_hour),cy:y(p.multiplier),r:4.5,fill:css(c),stroke:css("--surface-1"),"stroke-width":2},svg);
+      if(p.year>=2023&&k==="oct_nov")S("text",{x:x(p.aqua_hour)+7,y:y(p.multiplier)+4,"font-size":11,fill:css("--text-secondary")},svg).textContent=p.year;
+      const hit=S("circle",{cx:x(p.aqua_hour),cy:y(p.multiplier),r:10,fill:"transparent"},svg);
+      hit.addEventListener("mousemove",ev=>showTip(ev,`<b>${p.year} · ${k==="oct_nov"?"Oct–Nov":"Apr–May"}</b><br>Aqua looked at ${Math.floor(p.aqua_hour)}:${String(Math.round(p.aqua_hour%1*60)).padStart(2,"0")}<br>saw ×${p.multiplier.toFixed(2)} as much fire, relative to VIIRS, as in 2013–2020`));hit.addEventListener("mouseleave",hideTip)})});
+  const on=P.oct_nov.filter(r=>r.aqua_hour).sort((a,b)=>b.year-a.year)[0],am=(P.apr_may||[]).filter(r=>r.year>=2023);
+  const hhmm=h=>`${Math.floor(h)%12||12}:${String(Math.round(h%1*60)).padStart(2,"0")} pm`;
+  const amr=am.length?`×${Math.min(...am.map(r=>r.multiplier)).toFixed(1)}–×${Math.max(...am.map(r=>r.multiplier)).toFixed(1)}`:"–";
+  $("probeText").innerHTML=`<div class="card"><div class="muted">The finding</div>
+  <p style="font-size:18px;margin:6px 0">In ${on.year}, looking at <b>${hhmm(on.aqua_hour)}</b> instead of ~1:15 pm, Aqua saw <b>×${on.multiplier.toFixed(1)}</b> as much rice-season fire, relative to VIIRS${on.year===new Date().getFullYear()?" (season so far)":""}.</p>
+  <p style="margin:6px 0">Same satellite, same drift, wheat season: ${amr}, essentially flat. So the jump is not a change in the sensor or orbit height. It's fire burning <b>after</b> the main satellites pass.</p>
+  <div class="warn" style="margin-top:10px"><b>What it means:</b> VIIRS-based counts, the numbers used to track crop-fire policy, see only a timing-sensitive slice of the rice season. A falling count here can mean fewer fires, or fires the satellites didn't see.</div></div>`;
+}
+
+/* ---------- clock ---------- */
+function drawClock(summary){
+  const svg=$("drift");svg.innerHTML="";const W=560,H=250,L=44,R=70,T=10,B=26;svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("width","100%");
+  const ph=(summary&&summary.clock&&summary.clock.pass_solar_hour_by_year)||{};
+  const sats=[["Terra","--series-2"],["Aqua","--series-1"],["SNPP","--series-3"],["NOAA20","--series-4"],["NOAA21","--series-5"]].filter(s=>ph[s[0]]);
+  const all=sats.flatMap(([s])=>Object.entries(ph[s]).map(([y,h])=>[+y,h]));
+  if(!all.length){$("clockResult").innerHTML="<p class='muted'>No clock data for this region.</p>";return}
+  const y0=Math.min(...all.map(a=>a[0])),y1=Math.max(...all.map(a=>a[0]));
+  const h0=Math.floor(Math.min(...all.map(a=>a[1]))-0.3),h1=Math.ceil(Math.max(...all.map(a=>a[1]))+0.3);
+  const x=y=>L+(y-y0)/(y1-y0)*(W-L-R),yv=h=>T+(h1-h)/(h1-h0)*(H-T-B);
+  for(let h=h0;h<=h1;h++){S("line",{x1:L,x2:W-R,y1:yv(h),y2:yv(h),stroke:css("--grid")},svg);S("text",{x:L-6,y:yv(h)+4,"text-anchor":"end","font-size":11,fill:css("--text-muted")},svg).textContent=`${h}:00`}
+  for(let y=y0;y<=y1;y++)if(y%4===0)S("text",{x:x(y),y:H-8,"text-anchor":"middle","font-size":11,fill:css("--text-muted")},svg).textContent=y;
+  const labels=[];
+  const names={Terra:"Terra (MODIS)",Aqua:"Aqua (MODIS)",SNPP:"S-NPP (VIIRS)",NOAA20:"NOAA-20 (VIIRS)",NOAA21:"NOAA-21 (VIIRS)"};
+  sats.forEach(([s,c])=>{const pts=Object.entries(ph[s]).map(([y,h])=>[+y,h]).sort((a,b)=>a[0]-b[0]);
+    S("polyline",{points:pts.map(p=>`${x(p[0])},${yv(p[1])}`).join(" "),fill:"none",stroke:css(c),"stroke-width":2},svg);
+    const lp=pts[pts.length-1];labels.push({s,x:x(lp[0])+5,y:yv(lp[1])+4});
+    pts.forEach(p=>{const d=S("circle",{cx:x(p[0]),cy:yv(p[1]),r:6,fill:"transparent"},svg);d.addEventListener("mousemove",ev=>showTip(ev,`<b>${names[s]}</b> ${p[0]}<br>looks at ${Math.floor(p[1])}:${String(Math.round(p[1]%1*60)).padStart(2,"0")} local solar time`));d.addEventListener("mouseleave",hideTip)})});
+  labels.sort((a,b)=>a.y-b.y);for(let i=1;i<labels.length;i++)if(labels[i].y-labels[i-1].y<13)labels[i].y=labels[i-1].y+13;
+  labels.forEach(l=>S("text",{x:l.x,y:l.y,"font-size":11,fill:css("--text-secondary")},svg).textContent=l.s);
+  $("driftLegend").innerHTML=sats.map(([s,c])=>`<span><i class="sw" style="background:${css(c)}"></i>${names[s]}</span>`).join("")+`<span class="muted">Daytime pass, Oct–Nov, local solar time</span>`;
+  const p=summary.clock.later_look_effect_pooled||{};const a=p["2018-2021"],b=p["2022-now"];
+  const fmtE=e=>e?`<b>${e.pct_more_per_hour_later>0?"+":""}${e.pct_more_per_hour_later}%</b> per hour later <span class="muted">(90% CI ${e.ci90[0]} to ${e.ci90[1]}; ${e.n_days} days)</span>`:"not enough data";
+  $("clockResult").innerHTML=`<div class="card"><div class="muted">Supporting test · same day, two VIIRS satellites (identical instruments), same fields, same weather, up to ~1 h apart</div>
+   <p style="margin:8px 0">How many more fires does the <i>later</i> look see, Oct–Nov?</p>
+   <p style="margin:4px 0">2018–2021: ${fmtE(a)}</p><p style="margin:4px 0">2022–now: ${fmtE(b)}</p>
+   ${(()=>{const pl=((summary.clock.placebo_apr_may||{}).later_look_effect_pooled||{})["2022-now"];return pl?`<p style="margin:4px 0">Apr–May, 2022–now: ${fmtE(pl)}</p>`:""})()}
+   <p style="margin:8px 0">Even within one hour, a later look sees more rice-season fire: the satellites pass on the <i>rising</i> side of the daily fire cycle. This effect is similar before and after 2022, so this test alone can't say whether burning shifted later; the published geostationary study suggests it did.</p>
+   <p class="muted" style="margin-top:8px">${summary.clock.controls||""}</p></div>`;
+}
+
+/* ---------- trust ---------- */
+function drawTrust(summary){
+  const v=summary.validation||{};const j=summary.fake_2012_jump_ratio||{};
+  const row=(k,lab)=>v[k]?`<tr><td>${lab}</td><td>${v[k].annual_median_abs_pct_err.toFixed(1)}%</td><td>${v[k].monthly_median_abs_pct_err_busy_months.toFixed(1)}%</td><td>${v[k].r2_log_monthly.toFixed(3)}</td></tr>`:"";
+  const er=summary.exchange_rate_by_year||{};const aq=er.Aqua||{};
+  const early=Object.entries(aq).filter(([y])=>y>=2013&&y<=2020).map(([,x])=>x).filter(x=>x);
+  const late=Object.entries(aq).filter(([y])=>y>=2023).map(([,x])=>x).filter(x=>x);
+  const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+  $("trust").innerHTML=`<p class="sub">Each year from 2013 to 2020 was hidden in turn; the model, trained on the others, predicted VIIRS from MODIS alone.</p>
+  <table><tr><th>Converted sensor → VIIRS</th><th>Annual error (median)</th><th>Monthly error, busy months</th><th>R² (log, monthly)</th></tr>
+  ${row("MODIS_to_VIIRS_leave_one_year_out_2013_2020","Terra + Aqua")}${row("Aqua_to_VIIRS_leave_one_year_out_2013_2020","Aqua only")}${row("Terra_to_VIIRS_leave_one_year_out_2013_2020","Terra only (used before July 2002)")}</table>
+  <p>Fake jump at 2012: naive join <b>${j.raw_naive_join??"–"}×</b> → harmonized <b>${j.harmonized??"–"}×</b> (1.0× = no jump).</p>
+  ${early.length&&late.length?`<p>Why we calibrate only on 2013–2020: the VIIRS/Aqua exchange rate was ${mean(early).toFixed(2)} then, but ${mean(late).toFixed(2)} since 2023, after Aqua's orbit drifted. Tools that calibrate on every overlap year inherit this drift.</p>`:""}
+  <p class="muted">Limits: a hotspot is a detection, not a fire or a burned area; clouds and smoke hide fires; small fields can burn between passes. The clock test measures a change in timing; it does not measure how many fires are missed in total.</p>`;
+}
+
+function drawMethods(summary){
+  const m=summary.method||{};
+  $("methods").innerHTML=`<ol>
+  <li><b>Data.</b> All NASA FIRMS active-fire detections for the area: MODIS Collection 6.1 (Terra 2000→, Aqua 2002→) and VIIRS 375 m (S-NPP 2012→2 Nov 2026, NOAA-20 2018→, NOAA-21 2023→). Standard-quality archive where available, near-real-time after it. Detections NASA labels as volcanoes, offshore or static industrial sources are removed.</li>
+  <li><b>One VIIRS scale.</b> VIIRS satellites are put on the S-NPP scale (bridges: ${Object.entries(m.viirs_bridge_to_snpp_scale||{}).map(([k,v])=>k+" ×"+v.toFixed(2)).join(", ")||"–"}) and averaged, so a month with three satellites doesn't look like three times more fire.</li>
+  <li><b>MODIS → VIIRS exchange rate</b>, per calendar month, learned only from 2013–2020 (both MODIS orbits still controlled), shrunk toward the yearly rate (strength chosen by leave-one-year-out), with a 500× year-block bootstrap plus Poisson noise for the 90% range.</li>
+  <li><b>The clock.</b> Every detection's acquisition time is converted to local solar time. The same-day test compares pairs of VIIRS satellites over the same area on the same day, regressing the log ratio of their counts on the difference in look time, with pixel size (viewing angle) as a control.</li>
+  <li><b>Calendar.</b> Monthly totals on a 0.25° grid; any box is summed in your browser. "Normal" = between the 25th and 75th percentile of 2003–2022.</li></ol>
+  <p><b>Sources.</b> NASA FIRMS (doi:10.5067/FIRMS/MODIS/MCD14ML; doi:10.5067/FIRMS/VIIRS/VNP14IMGT_NRT.002). NSIDC MODIS orbit-drift notice. FIRMS S-NPP transition notice (Nov 2026). "Timing the Flames: Geostationary Satellite Detection of Diurnally Shifting Stubble Burning in Northwestern India", Remote Sensing 18(10):1506 (2026). ISRO study on shifting burn times (ThePrint, 2025).</p>
+  <p><b>Use of AI.</b> Code drafted with Claude (Anthropic) and reviewed by the team; no AI-generated images; all numbers computed from NASA data by the open-source scripts in the repository.</p>`;
+}
+
+function drawTiles(summary){
+  const j=summary.fake_2012_jump_ratio||{},p=(summary.clock&&summary.clock.later_look_effect_pooled)||{},v=(summary.validation||{})["MODIS_to_VIIRS_leave_one_year_out_2013_2020"];
+  const e=p["2022-now"];
+  $("tiles").innerHTML=`<div class="tile"><div class="v">${j.raw_naive_join!=null?j.raw_naive_join.toFixed(1):"–"}× → ${j.harmonized!=null?j.harmonized.toFixed(1):"–"}×</div><div class="l">fake 2012 jump, naive join → FireClock</div></div>
+  <div class="tile"><div class="v">${v?v.annual_median_abs_pct_err.toFixed(1)+"%":"–"}</div><div class="l">annual error on years the model never saw</div></div>
+  ${(()=>{const P=(summary.clock||{}).aqua_probe;const on=P&&P.oct_nov?P.oct_nov.filter(r=>r.aqua_hour).sort((a,b)=>b.year-a.year)[0]:null;
+    return on?`<div class="tile"><div class="v">×${on.multiplier.toFixed(1)}</div><div class="l">rice-season fire seen at ${Math.floor(on.aqua_hour)%12}:${String(Math.round(on.aqua_hour%1*60)).padStart(2,"0")} pm vs ~1:15 pm (Aqua, ${on.year}); wheat-season placebo: flat</div></div>`:""})()}`;
+}
+
+function csvDownload(rows){
+  const name=REGIONS.find(r=>r.id===state.region).name;const b=state.box;
+  const head=`# FireClock harmonized burning activity, ${name}, box S${b[0]} N${b[1]} W${b[2]} E${b[3]}\n# units: monthly active-fire detections on single-VIIRS-satellite (S-NPP) scale\nyear,month,harmonized,lo90,hi90,raw_naive_join,source\n`;
+  const body=rows.map(r=>[r.year,r.month,r.harm.toFixed(1),r.lo.toFixed(1),r.hi.toFixed(1),r.raw,r.src==="V"?"VIIRS":"MODIS_converted"].join(",")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([head+body],{type:"text/csv"}));a.download=`fireclock_${state.region}.csv`;a.click();
+}
+
+/* ---------- map ---------- */
+function initMap(){
+  if(typeof L==="undefined"){$("map").innerHTML="<p class='muted' style='padding:12px'>Map could not load (offline). Use the boxes above.</p>";return}
+  map=L.map("map",{scrollWheelZoom:false});
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,attribution:"© OpenStreetMap"}).addTo(map);
+  map.on("click",ev=>{if(!drawing)return;if(!firstCorner){firstCorner=ev.latlng;return}
+    const a=firstCorner,b=ev.latlng;firstCorner=null;drawing=false;$("drawBtn").classList.remove("on");
+    setBox([Math.min(a.lat,b.lat),Math.max(a.lat,b.lat),Math.min(a.lng,b.lng),Math.max(a.lng,b.lng)])});
+}
+function drawMapCells(d){
+  if(!map)return;if(cellLayer)cellLayer.remove();
+  const tot=d.cells.harm.map(a=>a.reduce((s,x)=>s+x,0));const mx=Math.max(...tot)||1;
+  cellLayer=L.layerGroup(d.cells.cells.map((c,i)=>L.rectangle([[c[0],c[1]],[c[0]+.25,c[1]+.25]],{weight:0,fillColor:RAMP[Math.min(8,Math.floor(Math.log1p(tot[i])/Math.log1p(mx)*8.999))],fillOpacity:.55}))).addTo(map);
+}
+function setBox(b){
+  b=b.map(v=>Math.round(v*4)/4);state.box=b;["s","n","w","e"].forEach((k,i)=>$(k).value=b[i]);
+  if(map){if(boxLayer)boxLayer.remove();boxLayer=L.rectangle([[b[0],b[2]],[b[1],b[3]]],{color:"#14110f",weight:2,fill:false}).addTo(map)}
+  render();
+}
+
+async function selectRegion(id){
+  state.region=id;const d=await loadRegion(id);const R=REGIONS.find(r=>r.id===id);
+  if(!d){$("cal").innerHTML="";$("now").innerHTML="<p>Data for this region is not available yet.</p>";return}
+  $("presets").innerHTML=R.presets.map((p,i)=>`<button data-i="${i}">${p.name}</button>`).join(" ");
+  $("presets").querySelectorAll("button").forEach(bt=>bt.onclick=()=>setBox(R.presets[+bt.dataset.i].b));
+  if(map){const b=R.presets[0].b;map.fitBounds([[b[0],b[2]],[b[1],b[3]]]);drawMapCells(d)}
+  drawTiles(d.summary);drawProbe(d.summary);drawClock(d.summary);drawTrust(d.summary);drawMethods(d.summary);
+  setBox(R.presets[0].b);
+}
+function render(){
+  const d=state.data[state.region];if(!d)return;
+  const {rows,nCells}=areaSeries(d,state.box);$("cellcount").textContent=`${nCells} grid cells in box`;
+  state.rows=rows;drawCalendar(rows);drawSeries(rows);drawNow(rows);
+}
+
+(function init(){
+  $("region").innerHTML=REGIONS.map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+  $("region").onchange=e=>selectRegion(e.target.value);
+  $("apply").onclick=()=>setBox(["s","n","w","e"].map(k=>parseFloat($(k).value)));
+  $("drawBtn").onclick=()=>{drawing=!drawing;firstCorner=null;$("drawBtn").classList.toggle("on",drawing)};
+  $("mHarm").onclick=()=>{state.mode="harm";$("mHarm").classList.add("on");$("mRaw").classList.remove("on");render()};
+  $("mRaw").onclick=()=>{state.mode="raw";$("mRaw").classList.add("on");$("mHarm").classList.remove("on");render()};
+  $("dl").onclick=()=>csvDownload(state.rows);
+  initMap();
+  const q=new URLSearchParams(location.search);selectRegion(q.get("region")||REGIONS[0].id);
+})();
+</script>
+</body>
+</html>
