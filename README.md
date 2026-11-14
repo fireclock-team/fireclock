@@ -1,100 +1,168 @@
 # FireClock
+### A fire calendar that knows what time it is
 
-**A fire calendar that knows what time it is.**
-NASA Space Apps Challenge 2026 · Challenge: *Harmonization of MODIS and VIIRS Hot Spots* · Team FireClock
+**NASA Space Apps Challenge 2026** · Challenge: *Harmonization of MODIS and VIIRS Hot Spots* · Team FireClock
 
-**Live app:** https://fireclock-team.github.io/fireclock/
+**▶ Live app: https://fireclock-team.github.io/fireclock/**
 
 > Every fire calendar assumes satellites look at the same hour every year. They don't, and neither do the fires.
 
-## Highlights for judges
+![As Aqua's orbit drifted later, it saw ever more rice-season fire](docs/img/fig_probe.png)
 
-- **Four breaks, not one.** Besides the 2012 sensor change, the record breaks when Terra/Aqua orbits drift (2020→), when S-NPP stops (Nov 2026) and when burning shifts later in the day (NW India, 2022→). FireClock handles all four.
-- **Calibrated only on clean years.** The MODIS→VIIRS exchange rate is learned from 2013–2020, before the orbits drifted, and tested on years the model never saw.
-- **A same-day natural experiment.** Two identical VIIRS instruments, same fields, same day, ~50 min apart: only the clock differs. Viewing angle is controlled.
-- **A placebo season.** The same test in a season with no reported shift (April–May) checks that the method doesn't invent effects.
-- **Honest limits.** A hotspot is a detection, not a fire. What the test can and can't show is stated plainly.
+---
 
-## What it does
+## The 30-second version
 
-FireClock joins 25 years of NASA FIRMS active-fire detections from MODIS (2000→) and VIIRS (2012→) into one consistent burning-activity calendar for any area you draw. It also tells you when the satellite's clock may be hiding fire.
+- **One consistent fire record, 2000 → today.** 3,057,777 NASA FIRMS detections from five satellites (Terra, Aqua, S-NPP, NOAA-20, NOAA-21) over Punjab & Haryana, joined on one scale. The fake **6.1× jump** a naive join shows in 2012 becomes **1.06×**.
+- **Tested on years it never saw.** Leave-one-year-out validation: median annual error **7.3%**, R² = 0.983 on monthly totals.
+- **A new finding from NASA's own data.** Aqua's orbit has been drifting, and over Punjab its look time moved from **1:17 pm to 3:32 pm**. As it looked later, it saw **×1.3 → ×1.6 → ×2.3 → ×5.4** as much rice-season fire as the satellites that still pass at ~1:15 pm. In the wheat season (placebo), with the same satellite and the same drift, it stays **flat**.
+- **Why it matters.** The satellite counts used to track crop burning in North India see a timing-sensitive slice of the season. The harmonized October 2026 count is ~91% below normal. FireClock flags that a falling count here can mean fewer fires *or* fires the satellites didn't see.
+- **A tool, not just a finding.** Any area, any date range: burning calendar, current month vs history, a satellite-clock check, and a CSV download, all in the browser.
 
-- **Burning calendar**: month × year heatmap, harmonized or raw, any box on a 0.25° grid, CSV download.
-- **Current month vs history**: anomaly against the 2003–2022 median, with "above / normal / below" classes and the area's critical period.
-- **Year-by-year record**: the naive join (fake jump in 2012) vs the harmonized record, with a 90% range.
-- **The satellite clock**: when each satellite actually looks at the area, year by year, plus a same-day test of whether *when* it looks changes *how much* it sees.
-- **Can you trust it?**: errors on years the model never saw.
+---
 
-## Why the clock matters
+## Why it matters
 
-The fire record has four breaks, not one:
+Every October and November, smoke from crop-residue burning in Punjab and Haryana adds to some of the worst air on Earth across Delhi and the Indo-Gangetic Plain. Fire counts from NASA–NOAA satellites are the standard way this burning is tracked, and they are used to judge whether policies to stop it are working.
 
-1. **Sensor (2012).** VIIRS (375 m) sees several times more hotspots than MODIS (1 km).
-2. **Orbit (2020→).** Terra and Aqua no longer hold their orbits: Terra drifts earlier, Aqua later. The "same" MODIS sensor now looks at a different hour every year.
-3. **Platform (Nov 2026).** Suomi NPP, the usual VIIRS reference, stopped delivering data on 2 November 2026; the record must bridge to NOAA-20 and NOAA-21.
-4. **Behaviour (2022→).** In NW India, studies report crop-residue burning shifting to late afternoon, after the ~1:30 pm satellite pass.
+If those counts depend on *what time the satellite looks*, a falling trend can be misread as success. FireClock gives fire managers, air-quality planners, scientists and journalists one record they can compare across decades, and tells them when to be careful.
 
-Most harmonization tools fix break 1. FireClock calibrates only on years before the orbits drifted, bridges the VIIRS satellites, and **measures** break 4 with NASA's own data.
+The method is not specific to India: any region where fires follow a daily cycle (agricultural burning, savanna fires) has the same blind spot. The app runs on any area of the precomputed regions, and the scripts run anywhere FIRMS has data.
 
-## The same-day test
+---
 
-On many days, two VIIRS satellites (identical instruments) pass over the same fields about 50 minutes apart. Same fields, same weather, same season: only the clock differs. We regress the log ratio of their detection counts on the difference in local look time, with pixel size (viewing angle) as a control, separately for 2018–2021 and 2022–now.
+## The four breaks in the fire record
 
-### Results for Punjab & Haryana (3,057,777 detections, Nov 2000 – Nov 2026)
+| # | Break | When | What it does to the record | FireClock's answer |
+|---|---|---|---|---|
+| 1 | **New sensor**: VIIRS 375 m joins MODIS 1 km | 2012 | Counts jump ~6× overnight | MODIS→VIIRS exchange rate, per calendar month, with 90% range |
+| 2 | **Drifting orbits**: Terra (earlier), Aqua (later) out of fuel | 2020 → | The "same" MODIS sensor looks at a different hour each year | Calibrate **only on 2013–2020**; measure each satellite's look time from the data |
+| 3 | **Platform ends**: S-NPP stops delivering data | 2 Nov 2026 | The usual VIIRS reference disappears | NOAA-20/21 bridged to the S-NPP scale; satellites averaged, never added |
+| 4 | **Timing of burning**: fire after the ~1:15 pm pass | rice season | Counts miss late-afternoon fire | **Measured** with Aqua's drift + placebo; flagged in the app |
 
-**Harmonization.** The naive join shows a fake **6.1× jump** in 2012; FireClock's record shows **1.06×**. On years the model never saw (leave-one-year-out, 2013–2020), annual totals are off by a median **7.3%** (R² = 0.983 on log monthly totals).
+Most harmonization tools fix break 1. FireClock handles all four.
 
-**The satellite clock.** Over Punjab in Oct–Nov, Aqua's look time drifted from **13:17** (2020) to **15:32** (2026); Terra's from **10:58** to **9:11**.
+![Terra and Aqua no longer look at the same hour](docs/img/fig_drift.png)
 
-**Aqua as an accidental afternoon fire-watcher.** Relative to the fixed ~1:15 pm VIIRS satellites, Aqua's rice-season (Oct–Nov) count rose as it looked later:
+---
+
+## What the challenge asks → what FireClock delivers
+
+| Challenge objective | FireClock |
+|---|---|
+| Harmonize MODIS and VIIRS so the sensor of origin no longer matters | One record on a single-VIIRS scale, 2000→today, with a 90% range |
+| Burning activity calendar from the early 2000s to the present | Month × year heatmap, harmonized or raw toggle |
+| Select a region and a date range | Presets, typed box, or draw a box on the map (0.25° grid) |
+| Compare the current month with the historical median | "Latest complete month" card: above / normal / below vs 2003–2022 |
+| Accessible colour ramps | Single-hue sequential ramp, quantile steps, values in every tooltip |
+| Downloadable CSV | One click: harmonized, 90% range, raw, source per month |
+| Key indices and visualizations | Critical period, peak month, year-by-year record, the satellite-clock panel |
+
+![Harmonized burning calendar](docs/img/fig_calendar.png)
+
+---
+
+## Results: Punjab & Haryana
+
+**Harmonization.** The naive join of all sensors shows a fake 6.1× jump in 2012; the harmonized record shows 1.06×.
+
+![The fake 2012 jump, removed](docs/img/fig_seam.png)
+
+**Validation on unseen years** (each year 2013–2020 hidden in turn, predicted from MODIS alone):
+
+| Converted sensor → VIIRS | Median annual error | Median monthly error, busy months | R² (log monthly) |
+|---|---|---|---|
+| Terra + Aqua | 7.3% | 10.3% | 0.983 |
+| Aqua only | 6.0% | 10.0% | 0.979 |
+| Terra only (used before July 2002) | 10.7% | 17.2% | 0.967 |
+
+**Aqua as an accidental afternoon fire-watcher.** Aqua's daytime count relative to the fixed VIIRS satellites, normalized to 2013–2020:
 
 | Year | Aqua look time | Rice season (Oct–Nov) | Wheat season (Apr–May, placebo) |
 |---|---|---|---|
-| 2022 | 13:23 | ×1.10 | ×1.27 |
-| 2023 | 13:37 | ×1.33 | ×0.59 |
-| 2024 | 14:05 | ×1.60 | ×1.10 |
-| 2025 | 14:43 | ×2.26 | ×0.97 |
-| 2026 (to 13 Nov) | 15:32 | ×5.44 | ×0.81 |
+| 2022 | 1:23 pm | ×1.10 | ×1.27 |
+| 2023 | 1:37 pm | ×1.33 | ×0.59 |
+| 2024 | 2:05 pm | ×1.60 | ×1.10 |
+| 2025 | 2:43 pm | ×2.26 | ×0.97 |
+| 2026 (to 13 Nov) | 3:32 pm | ×5.44 | ×0.81 |
 
-The wheat season stays flat with the same satellite and the same drift, so the rise is not a sensor or orbit-height artifact: it is fire burning after the main satellites pass.
+**Same-day test (supporting).** On days when two identical VIIRS instruments pass the same fields up to ~1 h apart, the later look sees **+28.6%** (2018–21) and **+29.6%** (2022–now) more rice-season fire per hour of delay (90% CIs 21–36% and 25–34%), with viewing angle controlled. Wheat season, 2022–now: +8.4%. The satellites pass on the rising side of the daily fire cycle.
 
-**Same-day test (supporting).** Within one hour, a later VIIRS look sees **+28.6%** (2018–21) and **+29.6%** (2022–now) more rice-season fire per hour (wheat season, 2022–now: +8.4%). The satellites pass on the rising side of the daily fire cycle. This short-window effect is similar before and after 2022, so this test alone cannot show *when* burning shifted; the published geostationary study (below) reports that it did.
+---
 
-**What it means.** VIIRS-based counts, the ones used to track crop-fire policy, see a timing-sensitive slice of the rice season. Oct 2026 is down sharply against the 2003–2022 median in the harmonized record; FireClock flags that a falling count here can mean fewer fires *or* fires the satellites did not see.
+## How we know it's right
 
+| Check | What it rules out | Result |
+|---|---|---|
+| Leave-one-year-out validation | Overfitting the exchange rate | 7.3% median annual error |
+| Calibrate on 2013–2020 only | Contamination from orbit drift | Aqua/VIIRS rate shifts after 2022 exactly when Aqua starts drifting |
+| Wheat-season placebo | Sensor ageing, orbit-height or pixel-size artifacts | Flat (×0.6–1.3) while rice season rises to ×5.4 |
+| Dose-response | A one-off coincidence | Effect grows every year as the look time moves later |
+| Pixel-size (viewing angle) control | Off-nadir pixels detecting fewer fires | Elasticity ≈ −1, as physics predicts; effect remains |
+| VIIRS satellites averaged, not added | "More satellites = more fire" | Single-satellite scale throughout |
+| Static sources removed | Factories and flares counted as fire | 37,781 detections removed (NASA `type` label) |
+| Independent study | Our method alone | Agrees with a 2026 geostationary study of the same region |
+
+**What our data does not show:** the one-hour same-day effect is similar before and after 2022, so FireClock does not claim to date a shift in burning time. That evidence comes from the geostationary study cited below.
+
+---
+
+## What's new
+
+- **Treating the satellite clock as a variable, not a constant.** Fire calendars normally assume each sensor's look time is fixed; FireClock measures it per area, per season, per year from the detections themselves.
+- **Turning a problem into an instrument.** Aqua's orbit drift is usually a nuisance for harmonization. FireClock uses it as a slow scan across the afternoon, revealing fire the fixed satellites can't see.
+- **Pre-drift calibration.** The MODIS→VIIRS exchange rate is learned only from years when both MODIS orbits were controlled, so the post-2022 drift doesn't leak into the harmonized record.
+- **A warning, not just a number.** Users see *when* a count can't be trusted at face value.
+
+---
 
 ## Method
 
-1. **Data**: all FIRMS detections for the area (MODIS C6.1; VIIRS 375 m S-NPP, NOAA-20, NOAA-21), standard archive then near-real-time. Volcano, offshore and static industrial detections removed where NASA labels them.
-2. **One VIIRS scale**: NOAA-20/21 bridged to S-NPP and averaged across satellites, so more satellites never means more fire.
-3. **MODIS → VIIRS exchange rate**: per calendar month, learned from 2013–2020 only (both MODIS orbits still controlled), shrunk toward the yearly rate (strength picked by leave-one-year-out), 90% range from a 500× year-block bootstrap plus Poisson noise. Terra-only rate before July 2002.
-4. **Calendar**: monthly sums on a 0.25° grid; the browser sums any box you draw.
+1. **Data.** All FIRMS active-fire detections in the area: MODIS Collection 6.1 (Terra 2000→, Aqua 2002→) and VIIRS 375 m (S-NPP 2012→2 Nov 2026, NOAA-20 2018→, NOAA-21 2023→). Standard-processing archive where available, near-real-time after it; overlaps de-duplicated. Detections NASA labels as volcano, offshore or other static source are removed. 26 years, 3,057,777 detections, about 3,900 API requests, all scripted.
+2. **Local solar time.** Each detection's UTC acquisition time is converted to local solar time (UTC + longitude/15), so look times are comparable across years and places.
+3. **One VIIRS scale.** NOAA-20 and NOAA-21 are bridged to S-NPP with monthly overlap ratios, then averaged across the satellites flying that month.
+4. **MODIS → VIIRS exchange rate.** For each calendar month *m*: k<sub>m</sub> = (V<sub>m</sub> + τ·k̄) / (M<sub>m</sub> + τ), learned on 2013–2020 only, with shrinkage τ chosen by leave-one-year-out error. Terra-only months (before July 2002) use a Terra-specific rate. Uncertainty: 500× year-block bootstrap of k, plus Poisson noise on counts, giving a 90% range.
+5. **Calendar.** Monthly harmonized totals on a 0.25° grid; any box is summed in the browser. "Normal" = 25th–75th percentile of 2003–2022.
+6. **Satellite clock.** Count-weighted mean local look time per satellite, per season, per year. *Aqua probe:* Aqua's seasonal count ÷ mean single-VIIRS count, normalized to 2013–2020, for rice vs wheat season. *Same-day test:* for VIIRS pairs over the same area on the same day, log(n<sub>b</sub>/n<sub>a</sub>) is regressed on the look-time difference and log pixel-area ratio, with pair fixed effects; 90% CIs by bootstrap over days.
+
+Code: `scripts/fetch_firms.py` (download + aggregation), `scripts/harmonize.py` (harmonization, validation, clock analysis), `scripts/make_figures.py` (figures), `docs/index.html` (the app: plain HTML/JS, no build step, Leaflet map).
+
+---
 
 ## Run it yourself
 
 ```
-pip install requests pandas numpy
-python scripts/fetch_firms.py YOUR_FIRMS_MAP_KEY nw_india   # free key: firms.modaps.eosdis.nasa.gov/api/map_key/
+pip install requests pandas numpy matplotlib
+python scripts/fetch_firms.py YOUR_FIRMS_MAP_KEY nw_india    # free key: firms.modaps.eosdis.nasa.gov/api/map_key/
 python scripts/harmonize.py nw_india
-# copy out/nw_india/* to docs/data/nw_india/ and open docs/index.html via any static server
+python scripts/make_figures.py out/nw_india docs/img
+# copy out/nw_india/{cells,summary,calendar,clock_pairs}.json to docs/data/nw_india/ and serve docs/ with any static server
 ```
+
+New region: add a bounding box to `REGIONS` in `fetch_firms.py` and to the region list in `docs/index.html`.
+
+---
 
 ## Limits
 
-A hotspot is a satellite detection, not a fire, a burned area or an emissions estimate. Clouds and thick smoke hide fires. The clock test measures a *change in timing*; it does not count how many fires are missed in total.
+A hotspot is a satellite detection, not a fire, a burned area or an emissions estimate. Clouds and thick smoke hide fires; small fields can start and finish burning between passes. The Aqua probe measures *relative* fire at different look times; it does not give a total count of missed fires. The 2026 season is partial (to 13 November).
+
+---
 
 ## Data and references
 
-- NASA FIRMS active fire data: MODIS C6.1 (doi:10.5067/FIRMS/MODIS/MCD14ML), VIIRS 375 m S-NPP / NOAA-20 / NOAA-21 (doi:10.5067/FIRMS/VIIRS/VNP14IMGT_NRT.002 and companion products).
+- NASA FIRMS active fire data: MODIS Collection 6.1 (doi:10.5067/FIRMS/MODIS/MCD14ML), VIIRS 375 m S-NPP, NOAA-20, NOAA-21 (doi:10.5067/FIRMS/VIIRS/VNP14IMGT_NRT.002 and companion products). https://firms.modaps.eosdis.nasa.gov/
 - NSIDC, MODIS: ongoing changes in Terra and Aqua orbits. https://nsidc.org/data/modis
-- NASA FIRMS / Earthdata notice: Suomi NPP data delivery ends November 2026.
+- NASA FIRMS / Earthdata: Suomi NPP data delivery ends November 2026.
 - "Timing the Flames: Geostationary Satellite Detection of Diurnally Shifting Stubble Burning in Northwestern India", *Remote Sensing* 18(10):1506, 2026. https://doi.org/10.3390/rs18101506
-- ThePrint (2025), ISRO study on stubble-burning timing.
-- Leaflet (BSD-2), OpenStreetMap tiles (ODbL), pandas, NumPy, Requests.
+- ThePrint (2025): ISRO study suggests farm fires shifted to late afternoon.
+- Software: Leaflet (BSD-2), OpenStreetMap tiles (ODbL), pandas, NumPy, Matplotlib, Requests.
+
+---
 
 ## Use of AI
 
-Code, research support and writing were drafted with **Claude (Anthropic)** and reviewed by the team. The team chose the challenge and the scientific question, made the analysis decisions, ran the data pipeline, and checked the results. No AI-generated images, audio or video are used. Every number comes from NASA data through the open-source scripts here. Files written with AI assistance say so in their header.
+FireClock was built with AI-assisted development (Claude, Anthropic) for coding and drafting. The author chose the scientific question and approach, ran the NASA data pipeline, made the analysis decisions, and checked every result. All figures are computed directly from NASA FIRMS data by the open-source code in this repository, and no AI-generated images, audio or video are used. Files developed with AI assistance note this in their header.
 
 ## Licence
 

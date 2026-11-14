@@ -138,7 +138,7 @@ footer{max-width:1100px;margin:auto;padding:0 24px 40px;color:var(--text-seconda
 <footer>
 FireClock · NASA Space Apps Challenge 2026 · Challenge: <i>Harmonization of MODIS and VIIRS Hot Spots</i>.
 Fire data: NASA FIRMS (MODIS C6.1 MCD14ML; VIIRS 375 m VNP14IMG, VJ114IMG, VJ214IMG). A hotspot is a satellite detection, not an individual fire.
-Code written with AI assistance (Claude, Anthropic); all analysis choices reviewed by the team. Open source, MIT licence.
+Built with AI-assisted development (Claude, Anthropic); the author chose the approach, ran the NASA data pipeline and checked every result. Open source, MIT licence · <a href="https://github.com/fireclock-team/fireclock">code</a>.
 </footer>
 <div id="tip"></div>
 
@@ -332,7 +332,8 @@ function drawTrust(summary){
   <table><tr><th>Converted sensor → VIIRS</th><th>Annual error (median)</th><th>Monthly error, busy months</th><th>R² (log, monthly)</th></tr>
   ${row("MODIS_to_VIIRS_leave_one_year_out_2013_2020","Terra + Aqua")}${row("Aqua_to_VIIRS_leave_one_year_out_2013_2020","Aqua only")}${row("Terra_to_VIIRS_leave_one_year_out_2013_2020","Terra only (used before July 2002)")}</table>
   <p>Fake jump at 2012: naive join <b>${j.raw_naive_join??"–"}×</b> → harmonized <b>${j.harmonized??"–"}×</b> (1.0× = no jump).</p>
-  ${early.length&&late.length?`<p>Why we calibrate only on 2013–2020: the VIIRS/Aqua exchange rate was ${mean(early).toFixed(2)} then, but ${mean(late).toFixed(2)} since 2023, after Aqua's orbit drifted. Tools that calibrate on every overlap year inherit this drift.</p>`:""}
+  ${(()=>{const P=(summary.clock||{}).aqua_probe;const on=P&&P.oct_nov?P.oct_nov.filter(r=>r.year>=2022).sort((a,b)=>b.multiplier-a.multiplier)[0]:null;
+    return on?`<p><b>Why we calibrate only on 2013–2020:</b> once Aqua's orbit started drifting (2022), its rice-season count relative to VIIRS rose by up to ×${on.multiplier.toFixed(1)} (section 4). Tools that learn the MODIS→VIIRS rate from every overlap year mix that drift into their conversion; FireClock keeps it out.</p>`:""})()}
   <p class="muted">Limits: a hotspot is a detection, not a fire or a burned area; clouds and smoke hide fires; small fields can burn between passes. The clock test measures a change in timing; it does not measure how many fires are missed in total.</p>`;
 }
 
@@ -345,13 +346,13 @@ function drawMethods(summary){
   <li><b>The clock.</b> Every detection's acquisition time is converted to local solar time. The same-day test compares pairs of VIIRS satellites over the same area on the same day, regressing the log ratio of their counts on the difference in look time, with pixel size (viewing angle) as a control.</li>
   <li><b>Calendar.</b> Monthly totals on a 0.25° grid; any box is summed in your browser. "Normal" = between the 25th and 75th percentile of 2003–2022.</li></ol>
   <p><b>Sources.</b> NASA FIRMS (doi:10.5067/FIRMS/MODIS/MCD14ML; doi:10.5067/FIRMS/VIIRS/VNP14IMGT_NRT.002). NSIDC MODIS orbit-drift notice. FIRMS S-NPP transition notice (Nov 2026). "Timing the Flames: Geostationary Satellite Detection of Diurnally Shifting Stubble Burning in Northwestern India", Remote Sensing 18(10):1506 (2026). ISRO study on shifting burn times (ThePrint, 2025).</p>
-  <p><b>Use of AI.</b> Code drafted with Claude (Anthropic) and reviewed by the team; no AI-generated images; all numbers computed from NASA data by the open-source scripts in the repository.</p>`;
+  <p><b>Use of AI.</b> FireClock was built with AI-assisted development (Claude, Anthropic) for coding and drafting. The author chose the scientific question and approach, ran the NASA data pipeline, made the analysis decisions, and checked every result. All figures are computed directly from NASA FIRMS data by the open-source code, and no AI-generated images, audio or video are used.</p>`;
 }
 
 function drawTiles(summary){
   const j=summary.fake_2012_jump_ratio||{},p=(summary.clock&&summary.clock.later_look_effect_pooled)||{},v=(summary.validation||{})["MODIS_to_VIIRS_leave_one_year_out_2013_2020"];
   const e=p["2022-now"];
-  $("tiles").innerHTML=`<div class="tile"><div class="v">${j.raw_naive_join!=null?j.raw_naive_join.toFixed(1):"–"}× → ${j.harmonized!=null?j.harmonized.toFixed(1):"–"}×</div><div class="l">fake 2012 jump, naive join → FireClock</div></div>
+  $("tiles").innerHTML=`<div class="tile"><div class="v">${j.raw_naive_join!=null?j.raw_naive_join.toFixed(1):"–"}× → ${j.harmonized!=null?j.harmonized.toFixed(2):"–"}×</div><div class="l">fake 2012 jump, naive join → FireClock</div></div>
   <div class="tile"><div class="v">${v?v.annual_median_abs_pct_err.toFixed(1)+"%":"–"}</div><div class="l">annual error on years the model never saw</div></div>
   ${(()=>{const P=(summary.clock||{}).aqua_probe;const on=P&&P.oct_nov?P.oct_nov.filter(r=>r.aqua_hour).sort((a,b)=>b.year-a.year)[0]:null;
     return on?`<div class="tile"><div class="v">×${on.multiplier.toFixed(1)}</div><div class="l">rice-season fire seen at ${Math.floor(on.aqua_hour)%12}:${String(Math.round(on.aqua_hour%1*60)).padStart(2,"0")} pm vs ~1:15 pm (Aqua, ${on.year}); wheat-season placebo: flat</div></div>`:""})()}`;
