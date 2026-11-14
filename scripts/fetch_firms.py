@@ -9,7 +9,7 @@ Usage:
     python fetch_firms.py YOUR_MAP_KEY
 
 Get a free MAP_KEY at https://firms.modaps.eosdis.nasa.gov/api/map_key/
-Output goes to ./data/ . Upload the files in ./data/agg/ back to Claude.
+Output goes to ./data/ ; the aggregated files in ./data/agg/ feed step 2 (harmonize.py).
 Safe to stop and re-run: finished chunks are cached in ./data/raw/.
 """
 import io
@@ -281,7 +281,7 @@ def main():
         if len(df):
             aggregate(region, df)
 
-    print("\nDone. Upload everything in data/agg/ plus data/availability.csv to Claude.")
+    print("\nDone. Next: python harmonize.py <region>")
 
 
 if __name__ == "__main__":
